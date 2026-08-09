@@ -187,14 +187,13 @@
                         </div>
 
                         <div class="setting hands-setting">
-                            <span class="setting-label">Voices</span>
-                            <label class="toggle" for="multihand-toggle">
-                                <input type="checkbox" id="multihand-toggle" aria-label="Toggle between one and two hand tracking">
-                                <span class="toggle-track">
-                                    <span class="toggle-label-off">1</span>
-                                    <span class="toggle-label-on">2</span>
-                                </span>
+                            <span class="setting-label" id="hand-mode-label">Hand tracking</span>
+                            <label class="hand-selector" for="multihand-toggle">
+                                <input type="checkbox" id="multihand-toggle" aria-labelledby="hand-mode-label" aria-describedby="hand-mode-help">
+                                <span class="hand-option hand-option-one">One hand</span>
+                                <span class="hand-option hand-option-two">Two hands</span>
                             </label>
+                            <span class="setting-help" id="hand-mode-help">Two hands play two independent sounds.</span>
                         </div>
                     </div>
                 </div>

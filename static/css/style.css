@@ -40,7 +40,7 @@ button, select, input {
     font: inherit;
 }
 
-button, select, input[type="range"], .toggle {
+button, select, input[type="range"], .hand-selector {
     cursor: pointer;
 }
 
@@ -134,7 +134,7 @@ p {
 .panel-stamp,
 .catalog-meta,
 .metric-label,
-.setting label,
+.setting > label:not(.hand-selector),
 .setting-label,
 .hand-badge,
 .status,
@@ -595,7 +595,7 @@ body.is-powered-off .record-light {
     grid-column: span 2;
 }
 
-.setting label,
+.setting > label:not(.hand-selector),
 .setting-label {
     color: var(--muted);
     font-size: 0.64rem;
@@ -604,7 +604,7 @@ body.is-powered-off .record-light {
     text-transform: uppercase;
 }
 
-.setting label {
+.setting > label:not(.hand-selector) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -636,7 +636,7 @@ body.is-powered-off .record-light {
 
 .setting select:focus-visible,
 input[type="range"]:focus-visible,
-.toggle input:focus-visible + .toggle-track {
+.hand-selector input:focus-visible ~ .hand-option {
     outline: 3px solid var(--accent-soft);
     outline-offset: 2px;
 }
@@ -685,53 +685,55 @@ input[type="range"]::-moz-range-thumb {
     justify-content: flex-end;
 }
 
-.toggle {
-    position: relative;
-    width: max-content;
+.hand-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    border: 1px solid var(--fg);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
-.toggle input {
+.hand-selector input {
     position: absolute;
     width: 1px;
     height: 1px;
     opacity: 0;
 }
 
-.toggle-track {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 64px;
-    height: 32px;
-    padding: 0 8px;
-    border: 1px solid var(--fg);
-    border-radius: 999px;
+.hand-option {
+    display: grid;
+    min-height: 36px;
+    padding: 6px 8px;
+    place-items: center;
     background: var(--bg);
     color: var(--muted);
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 800;
+    line-height: 1.15;
+    text-align: center;
+    transition: background 160ms ease, color 160ms ease;
 }
 
-.toggle-track::after {
-    content: "";
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--fg);
-    transition: transform 180ms ease;
+.hand-option + .hand-option {
+    border-left: 1px solid var(--fg);
 }
 
-.toggle input:checked + .toggle-track::after {
-    transform: translateX(32px);
-}
-
-.toggle input:checked + .toggle-track {
+.hand-selector:hover .hand-option {
     color: var(--fg);
+}
+
+.hand-selector input:not(:checked) ~ .hand-option-one,
+.hand-selector input:checked ~ .hand-option-two {
+    background: var(--fg);
+    color: var(--surface);
+}
+
+.setting-help {
+    color: var(--muted);
+    font-size: 0.68rem;
+    line-height: 1.3;
 }
 
 .track-list {
