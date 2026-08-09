@@ -2,25 +2,23 @@
 
 ## Project
 
-Wavr is a browser-based visual theremin by Mario the Maker. Flask serves one Jinja template; MediaPipe hand tracking and Web Audio synthesis run client-side.
+Wavr is a static browser-based visual theremin by Mario the Maker. MediaPipe hand tracking and Web Audio synthesis run entirely client-side. The root `index.html` is compatible with GitHub Pages.
 
 ## Quick Start
 
 ```bash
-source venv/bin/activate
-python app.py
-# http://127.0.0.1:5050
+python3 -m http.server 5050
+# http://localhost:5050
 ```
 
-The server defaults to `127.0.0.1:5050` with debug mode off. Development overrides are `WAVR_HOST`, `WAVR_PORT`, and `WAVR_DEBUG`.
+Do not open the app through a plain HTTP LAN IP when camera access is required. Use localhost or HTTPS.
 
 ## Architecture
 
-- **`app.py`** — Minimal Flask entry point and environment configuration.
+- **`index.html`** — Static application entry point, record-sleeve interface, controls, About section, and pinned MediaPipe scripts.
 - **`static/js/hand-tracking.js`** — MediaPipe/camera lifecycle, stable one- or two-hand identity, gesture extraction, retries, and cleanup.
 - **`static/js/audio-engine.js`** — Multi-voice Web Audio synth, scale quantization, seven sound modes, and context lifecycle.
 - **`static/js/app.js`** — DOM controller for settings, metrics, camera states, explicit power, visibility, and BFCache behavior.
-- **`templates/index.html`** — Record-sleeve interface, controls, About Mario the Maker, and pinned MediaPipe script URLs.
 - **`static/css/style.css`** — Six-token 1960s surf-pop design system, responsive layout, power states, focus treatment, and reduced motion.
 
 ## Runtime Flow
@@ -33,7 +31,7 @@ Camera frame
   → app.js renders note, level, tone, and status
 ```
 
-A lifecycle generation in `hand-tracking.js` invalidates pending camera starts and late MediaPipe results after stop/destroy. Preserve this contract when changing camera code.
+A lifecycle generation in `hand-tracking.js` invalidates pending camera starts and late MediaPipe results after stop/destroy. Each `Hands` instance captures its generation in the result callback. Preserve this contract when changing camera code.
 
 ## Audio
 
@@ -60,19 +58,20 @@ Power Off must:
 3. Suspend the AudioContext.
 4. Prevent visibility/BFCache restoration from restarting the instrument.
 
-Power On runs from a user gesture, resumes audio, and restores camera state. Camera callbacks and `onHandData()` must continue to respect the explicit power state.
+Power On runs from a user gesture, resumes audio, and restores camera state. Camera callbacks and `onHandData()` must continue to respect explicit power and document visibility.
 
 ## Camera Security
 
-`getUserMedia()` requires HTTPS except on loopback origins. Use `http://localhost:5050` or `http://127.0.0.1:5050` locally. Do not suggest a plain LAN IP as a camera-capable remote URL.
+`getUserMedia()` requires HTTPS except on loopback origins. Use `http://localhost:5050` or `http://127.0.0.1:5050` locally. GitHub Pages provides HTTPS. Do not suggest a plain LAN IP as a camera-capable URL.
 
 ## Conventions
 
-- No build step, bundler, npm, or external font dependency.
+- No backend, build step, bundler, npm, or external font dependency.
 - Browser modules use revealing IIFEs with explicit public APIs.
 - Keep all base colors in the six `:root` tokens; derive variants with `color-mix()`.
 - Preserve existing element IDs because `app.js` binds directly to them.
-- Keep MediaPipe package versions pinned consistently in the template and hand asset resolver.
+- Keep MediaPipe package versions pinned consistently in `index.html` and the hand asset resolver.
+- Use relative local asset URLs so GitHub Pages works under `/Wavr/`.
 - Do not commit `venv/`, `__pycache__/`, `.DS_Store`, or local editor settings.
 
 ## Validation
@@ -81,7 +80,6 @@ Power On runs from a user gesture, resumes audio, and restores camera state. Cam
 node --check static/js/audio-engine.js
 node --check static/js/hand-tracking.js
 node --check static/js/app.js
-venv/bin/python -c "from app import app; assert app.test_client().get('/').status_code == 200"
 git diff --check
 ```
 
@@ -104,4 +102,3 @@ Then manually verify in a camera-capable browser:
 | Change gestures | `hand-tracking.js` and `app.js` |
 | Change layout/theme | `index.html` and `style.css` |
 | Change power/lifecycle | `app.js`, `hand-tracking.js`, and `audio-engine.js` |
-| Add a Flask route | `app.py` |
