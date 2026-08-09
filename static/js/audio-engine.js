@@ -62,24 +62,20 @@ const AudioEngine = (() => {
         if (!scale) return freq;
 
         const midi = freqToMidi(freq);
-        const rootPitchClass = rootNote % 12;
+        const rootPitchClass = ((rootNote % 12) + 12) % 12;
+        const octaveBase = Math.floor(midi / 12) * 12;
 
-        // Find the closest note in the scale across octaves
+        // Compare every allowed pitch class in the surrounding octaves.
         let bestMidi = Math.round(midi);
         let bestDist = Infinity;
-
-        // Check notes in a range around the raw MIDI value
-        const baseMidi = Math.floor(midi) - 12;
-        for (let oct = 0; oct < 3; oct++) {
-            for (const pc of scale.notes) {
-                const candidate = baseMidi + oct * 12 + ((pc + rootPitchClass) % 12);
-                // Also check one octave shift of candidate
-                for (const c of [candidate, candidate + 12]) {
-                    const d = Math.abs(c - midi);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        bestMidi = c;
-                    }
+        for (let octaveOffset = -1; octaveOffset <= 1; octaveOffset++) {
+            for (const interval of scale.notes) {
+                const pitchClass = (rootPitchClass + interval) % 12;
+                const candidate = octaveBase + octaveOffset * 12 + pitchClass;
+                const distance = Math.abs(candidate - midi);
+                if (distance < bestDist) {
+                    bestDist = distance;
+                    bestMidi = candidate;
                 }
             }
         }
@@ -116,7 +112,9 @@ const AudioEngine = (() => {
      */
     function createVoice(id) {
         ensureContext();
-        if (ctx.state === 'suspended') ctx.resume();
+        if (ctx.state === 'suspended') {
+            void ctx.resume().catch(() => {});
+        }
 
         const voice = {
             id: id,
@@ -187,15 +185,20 @@ const AudioEngine = (() => {
             const delayGain = ctx.createGain();
             delayGain.gain.value = 0.3;
 
+            const compressor = ctx.createDynamicsCompressor();
+            compressor.threshold.value = -20;
+            compressor.ratio.value = 12;
+
             osc.connect(voice.filter);
             osc.connect(delay);
             delay.connect(delayGain);
-            delayGain.connect(voice.filter);
-            delayGain.connect(delay);
+            delayGain.connect(compressor);
+            compressor.connect(voice.filter);
+            compressor.connect(delay);
 
             osc.start();
 
-            voice.nodes = { osc, delay, delayGain };
+            voice.nodes = { osc, delay, delayGain, compressor };
 
         } else if (currentMode === 'pad') {
             // 3 detuned oscillators for lush ambient pad
@@ -322,17 +325,20 @@ const AudioEngine = (() => {
         const voice = voices[id];
         if (!voice) return;
 
+        // Remove from map immediately to prevent race with re-creation
+        delete voices[id];
+
         const now = ctx.currentTime;
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
         voice.gain.gain.linearRampToValueAtTime(0, now + 0.05);
 
         setTimeout(() => {
+            // Always clean up this captured graph, even if the same id was reused.
             teardownModeNodes(voice);
             try { voice.filter.disconnect(); } catch(e) {}
             try { voice.gain.disconnect(); } catch(e) {}
             voice.playing = false;
-            delete voices[id];
         }, 80);
     }
 
@@ -501,14 +507,45 @@ const AudioEngine = (() => {
     function getNoteName(freq) {
         const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         const midi = Math.round(freqToMidi(freq));
-        const name = noteNames[midi % 12];
+        const name = noteNames[((midi % 12) + 12) % 12];
         const octave = Math.floor(midi / 12) - 1;
         return name + octave;
+    }
+
+    async function ensureAndResume() {
+        ensureContext();
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+        return ctx.state === 'running';
+    }
+
+    async function suspend() {
+        if (ctx && ctx.state === 'running') {
+            await ctx.suspend();
+        }
+    }
+
+    async function close() {
+        for (const [id, voice] of Object.entries(voices)) {
+            delete voices[id];
+            teardownModeNodes(voice);
+            try { voice.filter.disconnect(); } catch(e) {}
+            try { voice.gain.disconnect(); } catch(e) {}
+            voice.playing = false;
+        }
+
+        const contextToClose = ctx;
+        ctx = null;
+        if (contextToClose && contextToClose.state !== 'closed') {
+            await contextToClose.close();
+        }
     }
 
     return {
         updateVoice, stopVoice, stopAll,
         setMode, setScale, setRootNote, setGlideTime, setWaveform,
         getScales, getFrequency, getNoteName,
+        ensureAndResume, suspend, close,
     };
 })();
