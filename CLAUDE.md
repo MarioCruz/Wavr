@@ -1,81 +1,107 @@
 # CLAUDE.md — Developer Guide
 
-## What is this project?
+## Project
 
-Visual Thermin is a web-based musical instrument controlled by hand gestures via webcam. Flask serves the page; all hand tracking and audio synthesis runs client-side in the browser using MediaPipe Hands and Web Audio API.
+Wavr is a browser-based visual theremin by Mario the Maker. Flask serves one Jinja template; MediaPipe hand tracking and Web Audio synthesis run client-side.
 
 ## Quick Start
 
 ```bash
 source venv/bin/activate
 python app.py
-# → http://localhost:5050
+# http://127.0.0.1:5050
 ```
+
+The server defaults to `127.0.0.1:5050` with debug mode off. Development overrides are `WAVR_HOST`, `WAVR_PORT`, and `WAVR_DEBUG`.
 
 ## Architecture
 
-- **Flask (`app.py`)** — Minimal server. Serves `index.html` and static files. Binds `0.0.0.0:5050`.
-- **`static/js/hand-tracking.js`** — Wraps MediaPipe Hands. Detects 1-2 hands, extracts X/Y position and fist/open gesture. Returns array of hand data objects per frame.
-- **`static/js/audio-engine.js`** — Multi-voice Web Audio synth. Each detected hand gets its own voice (oscillator chain + gain + filter). Handles scale quantization and glide/portamento. Seven synth modes: FM, Clean, Warm, Pad, Theremin, Organ, Bitcrush.
-- **`static/js/app.js`** — IIFE that wires hand tracking callbacks to audio engine and DOM updates. Manages settings UI (scale, root, glide, synth mode, multi-hand toggle).
-- **`templates/index.html`** — Jinja2 template. Loads Google Fonts, MediaPipe from CDN, local CSS/JS.
-- **`static/css/style.css`** — Beach Boys aesthetic: sunset gradients, coral/turquoise/sky palette, Pacifico font.
+- **`app.py`** — Minimal Flask entry point and environment configuration.
+- **`static/js/hand-tracking.js`** — MediaPipe/camera lifecycle, stable one- or two-hand identity, gesture extraction, retries, and cleanup.
+- **`static/js/audio-engine.js`** — Multi-voice Web Audio synth, scale quantization, seven sound modes, and context lifecycle.
+- **`static/js/app.js`** — DOM controller for settings, metrics, camera states, explicit power, visibility, and BFCache behavior.
+- **`templates/index.html`** — Record-sleeve interface, controls, About Mario the Maker, and pinned MediaPipe script URLs.
+- **`static/css/style.css`** — Six-token 1960s surf-pop design system, responsive layout, power states, focus treatment, and reduced motion.
 
-## Key Concepts
+## Runtime Flow
 
-### Scales & Quantization
-Scales are defined in `audio-engine.js` as arrays of pitch classes (0-11). The `quantize()` function snaps any continuous frequency to the nearest note in the selected scale + root. Glide time controls how fast the oscillator ramps to the quantized pitch (0 = snap, up to 500ms = slow morph).
+```text
+Camera frame
+  → HandTracking assigns stable IDs and extracts x/y/openness
+  → app.js clamps normalized controls
+  → AudioEngine creates or updates the matching voice
+  → app.js renders note, level, tone, and status
+```
 
-### Multi-Voice
-Each hand maps to a voice ID (0 or 1). Voices are created on demand in `updateVoice()` and destroyed in `stopVoice()`. Each voice has its own complete audio chain: oscillators → BiquadFilter → GainNode → destination.
+A lifecycle generation in `hand-tracking.js` invalidates pending camera starts and late MediaPipe results after stop/destroy. Preserve this contract when changing camera code.
 
-### Synth Modes
-All modes are defined in `setupModeNodes()` with frequency updates in `updateVoice()`:
+## Audio
 
-| Mode | Key | Sound Design |
+Scales are pitch-class arrays in `audio-engine.js`. `quantize()` searches valid pitch classes around the input note's octave. Each voice owns its oscillator graph, low-pass filter, and gain node.
+
+| Mode | Key | Design |
 |---|---|---|
-| FM Synth | `fm` | Carrier + modulator oscillators, classic electronic |
-| Clean Wave | `clean` | Single oscillator (sine/sawtooth selectable) |
-| Warm Tone | `warm` | Triangle osc + delay-based reverb feedback loop |
-| Pad | `pad` | 3 detuned oscillators (1x, 1.005x, 0.995x) for lush ambient |
-| Theremin | `theremin` | Sine + 5.5Hz vibrato LFO, depth scales with frequency |
-| Organ | `organ` | Additive harmonics: fundamental + 2nd + 3rd partial |
-| Bitcrush | `bitcrush` | Sawtooth through 8-step staircase waveshaper |
+| FM Synth | `fm` | Carrier and modulator |
+| Clean Wave | `clean` | Sine or sawtooth |
+| Warm Tone | `warm` | Triangle plus delay character |
+| Pad | `pad` | Three detuned oscillators |
+| Theremin | `theremin` | Sine plus vibrato LFO |
+| Organ | `organ` | Fundamental plus harmonics |
+| Bitcrush | `bitcrush` | Sawtooth through stepped waveshaping |
 
-### Hand Tracking Data Flow
-```
-MediaPipe frame → HandTracking.processResults()
-  → array of { id, x, y, openness }
-  → app.js onHandData()
-    → AudioEngine.updateVoice(id, freqNorm, volNorm, openness)
-    → DOM updates per hand
-```
+When destroying a voice, always clean up the captured old graph even if the same ID has already been reused.
+
+## Power and Page Lifecycle
+
+Power Off must:
+
+1. Stop all voices.
+2. Stop camera tracks and invalidate pending tracking work.
+3. Suspend the AudioContext.
+4. Prevent visibility/BFCache restoration from restarting the instrument.
+
+Power On runs from a user gesture, resumes audio, and restores camera state. Camera callbacks and `onHandData()` must continue to respect the explicit power state.
+
+## Camera Security
+
+`getUserMedia()` requires HTTPS except on loopback origins. Use `http://localhost:5050` or `http://127.0.0.1:5050` locally. Do not suggest a plain LAN IP as a camera-capable remote URL.
 
 ## Conventions
 
-- No build step, no bundler — all vanilla JS loaded via `<script>` tags
-- Modules use the revealing module pattern (IIFE returning public API)
-- CSS uses custom properties defined in `:root`
-- Python virtual environment in `venv/` (gitignored)
-- Target platform: Raspberry Pi 5 + Chromium
+- No build step, bundler, npm, or external font dependency.
+- Browser modules use revealing IIFEs with explicit public APIs.
+- Keep all base colors in the six `:root` tokens; derive variants with `color-mix()`.
+- Preserve existing element IDs because `app.js` binds directly to them.
+- Keep MediaPipe package versions pinned consistently in the template and hand asset resolver.
+- Do not commit `venv/`, `__pycache__/`, `.DS_Store`, or local editor settings.
 
-## Testing
+## Validation
 
-Open http://localhost:5050 in a browser with a webcam. Verify:
-1. Camera feed appears in the left panel
-2. Show hand → audio plays, metrics update
-3. Change scale/root → notes snap to correct pitches
-4. Adjust glide → smooth vs instant transitions
-5. Toggle multi-hand → second hand row appears, two independent voices
-6. Switch synth mode → sound character changes
+```bash
+node --check static/js/audio-engine.js
+node --check static/js/hand-tracking.js
+node --check static/js/app.js
+venv/bin/python -c "from app import app; assert app.test_client().get('/').status_code == 200"
+git diff --check
+```
 
-## Files You'll Touch Most
+Then manually verify in a camera-capable browser:
+
+1. Camera success and failure/retry states.
+2. Audio after the first click/key gesture.
+3. Valid notes after scale/root changes.
+4. Stable one- and two-hand voices.
+5. Power Off releases the camera and Power On restores it.
+6. Hide/show and browser back/forward cache behavior.
+7. Phone-width layout and keyboard focus.
+
+## Common Changes
 
 | Task | Files |
 |---|---|
-| Add a new scale | `audio-engine.js` (SCALES object) + `index.html` (dropdown option) |
-| Add a new synth mode | `audio-engine.js` (setupModeNodes + updateVoice) + `index.html` (dropdown option) |
-| Change the sound | `audio-engine.js` (setupModeNodes functions) |
-| Add a new gesture | `hand-tracking.js` (extractHandData) + `app.js` (onHandData) |
-| Modify the layout/theme | `style.css` + `index.html` |
-| Add a Flask API route | `app.py` |
+| Add a scale | `audio-engine.js` and scale dropdown in `index.html` |
+| Add a synth | `audio-engine.js` and synth dropdown in `index.html` |
+| Change gestures | `hand-tracking.js` and `app.js` |
+| Change layout/theme | `index.html` and `style.css` |
+| Change power/lifecycle | `app.js`, `hand-tracking.js`, and `audio-engine.js` |
+| Add a Flask route | `app.py` |

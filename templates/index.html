@@ -3,204 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Wavr — a web-based visual theremin controlled by hand gestures via webcam. Wave your hands to control pitch, volume, and filter in real time.">
-    <title>Wavr — Visual Thermin</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
+    <meta name="description" content="Wavr is a camera-controlled visual theremin. Move your hands to shape pitch, volume, and tone in real time.">
+    <title>Wavr — Visual Theremin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header class="header">
-        <h1 class="title">Visual Thermin</h1>
-        <p class="subtitle">Computer Vision-Powered Frequency Modulator</p>
-    </header>
+    <div class="page-shell">
+        <header class="header" data-od-id="masthead">
+            <div class="header-stripe" aria-hidden="true"></div>
+            <div class="header-inner">
+                <div class="label-mark" aria-hidden="true"><span>W</span></div>
+                <div class="title-group">
+                    <p class="eyebrow">Wavr Sound Laboratory · Side A</p>
+                    <h1 class="title"><span>Visual</span> <em>Theremin</em></h1>
+                    <p class="subtitle">Good vibrations. No strings attached.</p>
+                </div>
+                <div class="header-actions">
+                    <div class="catalog-meta" aria-label="Application details">
+                        <span>STEREO</span>
+                        <span>WVR–5050</span>
+                        <span>LIVE EDITION</span>
+                    </div>
+                    <a class="about-link" href="#about">About the maker</a>
+                    <button id="power-toggle" class="power-toggle" type="button" aria-pressed="true" aria-label="Turn Wavr off">
+                        <span class="power-symbol" aria-hidden="true"></span>
+                        <span id="power-label">Power off</span>
+                    </button>
+                </div>
+            </div>
+        </header>
 
-    <main class="main">
-        <!-- Webcam -->
-        <section class="webcam-panel">
-            <div class="webcam-container">
-                <video id="webcam" autoplay playsinline></video>
-                <canvas id="overlay"></canvas>
-                <div id="no-camera" class="no-camera">
-                    <p>Camera access needed</p>
-                    <p class="small">Allow camera permissions to play</p>
+        <main class="main">
+            <section class="webcam-panel" data-od-id="live-stage" aria-labelledby="stage-title">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Side A · Performance</p>
+                        <h2 id="stage-title">Live stage</h2>
+                    </div>
+                    <span class="panel-stamp">CAMERA / 01</span>
+                </div>
+
+                <div class="webcam-container">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="overlay"></canvas>
+                    <div id="no-camera" class="no-camera" role="status" aria-live="polite">
+                        <p id="no-camera-title">Camera access needed</p>
+                        <p id="no-camera-detail" class="small">Allow camera permissions to play</p>
+                        <button id="retry-camera" class="camera-retry" type="button" hidden>Try camera again</button>
+                    </div>
+                </div>
+
+                <div class="stage-footer">
+                    <span>Left / right changes pitch</span>
+                    <span class="mono">65–1047 HZ</span>
+                </div>
+            </section>
+
+            <section class="controls-panel" data-od-id="studio-console" aria-label="Theremin controls">
+                <div class="card metrics-card">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">Now playing</p>
+                            <h2>Hand signals</h2>
+                        </div>
+                        <span class="record-light" aria-hidden="true"></span>
+                    </div>
+
+                    <div id="hand-metrics">
+                        <div class="hand-row" id="hand-0-row">
+                            <span class="hand-badge coral">Voice 01</span>
+                            <div class="metrics-row">
+                                <div class="metric">
+                                    <span class="metric-label">Note</span>
+                                    <span class="metric-value frequency-value" id="hand-0-freq">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Level</span>
+                                    <span class="metric-value volume-value" id="hand-0-vol">--%</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Tone</span>
+                                    <span class="metric-value filter-value" id="hand-0-filter">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hand-row hidden" id="hand-1-row">
+                            <span class="hand-badge turquoise">Voice 02</span>
+                            <div class="metrics-row">
+                                <div class="metric">
+                                    <span class="metric-label">Note</span>
+                                    <span class="metric-value frequency-value" id="hand-1-freq">--</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Level</span>
+                                    <span class="metric-value volume-value" id="hand-1-vol">--%</span>
+                                </div>
+                                <div class="metric">
+                                    <span class="metric-label">Tone</span>
+                                    <span class="metric-value filter-value" id="hand-1-filter">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status" id="status">
+                        <span class="status-dot"></span>
+                        <span id="status-text">Show hand to play</span>
+                    </div>
+                </div>
+
+                <div class="card settings-card">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">Side B · Controls</p>
+                            <h2>Studio console</h2>
+                        </div>
+                        <span class="panel-stamp">WAVR MK I</span>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="setting">
+                            <label for="synth-select">Instrument</label>
+                            <select id="synth-select">
+                                <option value="fm">FM Synth</option>
+                                <option value="clean">Clean Wave</option>
+                                <option value="warm">Warm Tone</option>
+                                <option value="pad">Pad</option>
+                                <option value="theremin">Theremin</option>
+                                <option value="organ">Organ</option>
+                                <option value="bitcrush">Bitcrush</option>
+                            </select>
+                        </div>
+
+                        <div class="setting" id="waveform-setting" style="display: none;">
+                            <label for="waveform-select">Wave shape</label>
+                            <select id="waveform-select">
+                                <option value="sine">Sine</option>
+                                <option value="sawtooth">Sawtooth</option>
+                            </select>
+                        </div>
+
+                        <div class="setting">
+                            <label for="scale-select">Scale</label>
+                            <select id="scale-select">
+                                <option value="chromatic">Chromatic</option>
+                                <option value="major" selected>Major</option>
+                                <option value="minor">Natural Minor</option>
+                                <option value="pentatonic">Pentatonic Major</option>
+                                <option value="pent_minor">Pentatonic Minor</option>
+                                <option value="blues">Blues</option>
+                                <option value="dorian">Dorian</option>
+                                <option value="mixolydian">Mixolydian</option>
+                                <option value="harmonic_min">Harmonic Minor</option>
+                                <option value="whole_tone">Whole Tone</option>
+                            </select>
+                        </div>
+
+                        <div class="setting">
+                            <label for="root-select">Root note</label>
+                            <select id="root-select">
+                                <option value="48">C</option>
+                                <option value="49">C#</option>
+                                <option value="50">D</option>
+                                <option value="51">D#</option>
+                                <option value="52">E</option>
+                                <option value="53">F</option>
+                                <option value="54">F#</option>
+                                <option value="55">G</option>
+                                <option value="56">G#</option>
+                                <option value="57">A</option>
+                                <option value="58">A#</option>
+                                <option value="59">B</option>
+                            </select>
+                        </div>
+
+                        <div class="setting setting-wide">
+                            <label for="glide-slider">
+                                Glide
+                                <span class="setting-hint" id="glide-label">Snap</span>
+                            </label>
+                            <input type="range" id="glide-slider" min="0" max="500" value="20" step="10">
+                        </div>
+
+                        <div class="setting hands-setting">
+                            <span class="setting-label">Voices</span>
+                            <label class="toggle" for="multihand-toggle">
+                                <input type="checkbox" id="multihand-toggle" aria-label="Toggle between one and two hand tracking">
+                                <span class="toggle-track">
+                                    <span class="toggle-label-off">1</span>
+                                    <span class="toggle-label-on">2</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card how-to-play">
+                    <div class="card-heading compact">
+                        <div>
+                            <p class="eyebrow">Liner notes</p>
+                            <h2>How to play</h2>
+                        </div>
+                    </div>
+                    <ol class="track-list">
+                        <li>
+                            <span class="track-number">A1</span>
+                            <div><strong>Find the melody</strong><span>Move left and right for pitch.</span></div>
+                        </li>
+                        <li>
+                            <span class="track-number">A2</span>
+                            <div><strong>Ride the level</strong><span>Move up and down for volume.</span></div>
+                        </li>
+                        <li>
+                            <span class="track-number">B1</span>
+                            <div><strong>Shape the color</strong><span>Open your hand or make a fist.</span></div>
+                        </li>
+                    </ol>
+                </div>
+            </section>
+        </main>
+
+        <section id="about" class="about-section" data-od-id="about-maker" aria-labelledby="about-title">
+            <div class="about-inner">
+                <div class="maker-label" aria-hidden="true">
+                    <span>MTM</span>
+                    <small>ORIGINAL WORKS</small>
+                </div>
+                <div class="about-copy">
+                    <p class="eyebrow">Sleeve notes · Meet the maker</p>
+                    <h2 id="about-title">Made by Mario the Maker.</h2>
+                    <p class="about-lead">Mario the Maker creates playful instruments and interactive experiences where music, technology, and imagination meet.</p>
+                    <p>Wavr turns movement into melody—an invitation to wave, listen, make noise, and discover something unexpected. No strings, keys, or musical training required.</p>
+                    <div class="maker-tags" aria-label="Mario the Maker disciplines">
+                        <span>Music</span>
+                        <span>Code</span>
+                        <span>Play</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Controls -->
-        <section class="controls-panel">
+        <footer class="footer" data-od-id="footer">
+            <span>WAVR VISUAL INSTRUMENTS</span>
+            <span>Designed &amp; built by Mario the Maker.</span>
+            <span class="mono">CAT. NO. 5050</span>
+        </footer>
+    </div>
 
-            <!-- Per-hand metrics -->
-            <div class="card metrics-card">
-                <div id="hand-metrics">
-                    <!-- Hand 1 (always shown) -->
-                    <div class="hand-row" id="hand-0-row">
-                        <span class="hand-badge coral">Hand 1</span>
-                        <div class="metrics-row">
-                            <div class="metric">
-                                <span class="metric-label">Note</span>
-                                <span class="metric-value frequency-value" id="hand-0-freq">--</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Volume</span>
-                                <span class="metric-value volume-value" id="hand-0-vol">--%</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Filter</span>
-                                <span class="metric-value filter-value" id="hand-0-filter">--</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Hand 2 (shown when multi-hand enabled) -->
-                    <div class="hand-row hidden" id="hand-1-row">
-                        <span class="hand-badge turquoise">Hand 2</span>
-                        <div class="metrics-row">
-                            <div class="metric">
-                                <span class="metric-label">Note</span>
-                                <span class="metric-value frequency-value" id="hand-1-freq">--</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Volume</span>
-                                <span class="metric-value volume-value" id="hand-1-vol">--%</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Filter</span>
-                                <span class="metric-value filter-value" id="hand-1-filter">--</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status -->
-                <div class="status" id="status">
-                    <span class="status-dot"></span>
-                    Show hand to play
-                </div>
-            </div>
-
-            <!-- Settings card -->
-            <div class="card settings-card">
-                <h2 class="card-title">Settings</h2>
-                <div class="settings-grid">
-                    <!-- Synth mode -->
-                    <div class="setting">
-                        <label for="synth-select">Synth</label>
-                        <select id="synth-select">
-                            <option value="fm">FM Synth</option>
-                            <option value="clean">Clean Wave</option>
-                            <option value="warm">Warm Tone</option>
-                            <option value="pad">Pad</option>
-                            <option value="theremin">Theremin</option>
-                            <option value="organ">Organ</option>
-                            <option value="bitcrush">Bitcrush</option>
-                        </select>
-                    </div>
-
-                    <!-- Waveform (Clean Wave mode) -->
-                    <div class="setting hidden" id="waveform-setting">
-                        <label for="waveform-select">Wave</label>
-                        <select id="waveform-select">
-                            <option value="sine">Sine</option>
-                            <option value="sawtooth">Sawtooth</option>
-                        </select>
-                    </div>
-
-                    <!-- Scale -->
-                    <div class="setting">
-                        <label for="scale-select">Scale</label>
-                        <select id="scale-select">
-                            <option value="chromatic">Chromatic</option>
-                            <option value="major" selected>Major</option>
-                            <option value="minor">Natural Minor</option>
-                            <option value="pentatonic">Pentatonic Major</option>
-                            <option value="pent_minor">Pentatonic Minor</option>
-                            <option value="blues">Blues</option>
-                            <option value="dorian">Dorian</option>
-                            <option value="mixolydian">Mixolydian</option>
-                            <option value="harmonic_min">Harmonic Minor</option>
-                            <option value="whole_tone">Whole Tone</option>
-                        </select>
-                    </div>
-
-                    <!-- Root note -->
-                    <div class="setting">
-                        <label for="root-select">Root</label>
-                        <select id="root-select">
-                            <option value="48">C</option>
-                            <option value="49">C#</option>
-                            <option value="50">D</option>
-                            <option value="51">D#</option>
-                            <option value="52">E</option>
-                            <option value="53">F</option>
-                            <option value="54">F#</option>
-                            <option value="55">G</option>
-                            <option value="56">G#</option>
-                            <option value="57">A</option>
-                            <option value="58">A#</option>
-                            <option value="59">B</option>
-                        </select>
-                    </div>
-
-                    <!-- Glide -->
-                    <div class="setting setting-wide">
-                        <label for="glide-slider">
-                            Glide
-                            <span class="setting-hint" id="glide-label">Snap</span>
-                        </label>
-                        <input type="range" id="glide-slider" min="0" max="500" value="20" step="10">
-                    </div>
-
-                    <!-- Multi-hand toggle -->
-                    <div class="setting">
-                        <label for="multihand-toggle">Hands</label>
-                        <label class="toggle">
-                            <input type="checkbox" id="multihand-toggle">
-                            <span class="toggle-track">
-                                <span class="toggle-label-off">1</span>
-                                <span class="toggle-label-on">2</span>
-                            </span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- How to play -->
-            <div class="card how-to-play">
-                <h2 class="card-title">How to Play</h2>
-                <ul class="instructions">
-                    <li>
-                        <span class="instruction-icon">&#8596;</span>
-                        <div>
-                            <strong>Pitch</strong>
-                            <span>Move hand left or right</span>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="instruction-icon">&#8597;</span>
-                        <div>
-                            <strong>Volume</strong>
-                            <span>Move hand up or down</span>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="instruction-icon">&#9994;&#9995;</span>
-                        <div>
-                            <strong>Filter</strong>
-                            <span>Make a fist or open hand</span>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </section>
-    </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/audio-engine.js') }}"></script>
     <script src="{{ url_for('static', filename='js/hand-tracking.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

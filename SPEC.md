@@ -1,172 +1,138 @@
-# Visual Thermin — Specification
+# Wavr Visual Theremin — Specification
 
 ## Overview
-A web-based visual theremin (frequency modulator) controlled by hand gestures detected through a webcam. The application uses computer vision to track hand position and gestures, mapping them to audio synthesis parameters in real time.
 
-**Target platform:** Raspberry Pi 5 running Chromium
-**Stack:** Python/Flask backend, MediaPipe Hands + Web Audio API frontend
+Wavr is a web-based musical instrument controlled by hand gestures detected through a webcam. MediaPipe runs in the browser and maps hand position and openness to a multi-voice Web Audio synthesizer. Flask only renders the page and serves local assets.
 
----
+**Creator:** Mario the Maker
+
+**Target platform:** Chromium on desktop or Raspberry Pi 5
+
+**Stack:** Python/Flask, MediaPipe Hands, Web Audio API, vanilla HTML/CSS/JavaScript
 
 ## Interaction Model
 
 | Gesture | Parameter | Mapping |
 |---|---|---|
-| Hand horizontal position (X) | **Pitch / Frequency** | Left = low frequency, Right = high frequency |
-| Hand vertical position (Y) | **Volume** | Up = loud, Down = quiet |
-| Fist vs open hand | **Filter cutoff** | Fist = closed/dark filter, Open hand = bright/open filter |
+| Horizontal hand position | Pitch | Left = low, right = high |
+| Vertical hand position | Voice level | Bottom = quiet, top = loud |
+| Hand openness | Low-pass cutoff | Fist = dark, open = bright |
 
-### Frequency Range
-- Minimum: ~65 Hz (C2)
-- Maximum: ~1047 Hz (C6)
-- Mapped linearly or logarithmically across the webcam frame width
+Input values are clamped to `0..1` before synthesis because landmarks can briefly leave the camera frame.
 
-### Volume Range
-- 0% (hand at bottom) to 100% (hand at top)
+### Ranges
 
-### Filter
-- Lowpass filter cutoff: 200 Hz (fist) to 8000 Hz (open hand)
-- Gesture detection based on finger tip distance from palm center
+- Frequency: approximately 65 Hz (C2) to 1047 Hz (C6), logarithmically mapped
+- Voice level: 0% to 50% before multi-voice scaling
+- Filter cutoff: 200 Hz to 8000 Hz
+- Glide: 0 to 500 ms
+- Tracked hands: one by default, two when enabled
 
-### Activation
-- Sound only plays when a hand is detected in the frame
-- "Show hand to start" prompt displayed when no hand is visible
+### Activation and Power
 
----
+- A detected hand creates a voice; removing it fades and destroys that voice.
+- The Power Off control stops every voice, stops camera tracks and pending tracking work, suspends audio, and prevents visibility restoration from restarting the instrument.
+- Power On resumes audio from the user gesture and restarts camera tracking or restores the last actionable camera error.
+- Hiding the page pauses camera/audio work. BFCache restoration respects the current power state.
 
-## Architecture
+## Hand Tracking
 
-```
-Browser (Chromium on Pi 5)
-├── MediaPipe Hands (JS) ─── webcam → hand landmarks
-├── Web Audio API ─────────── oscillators + gain + filter → speakers
-└── UI ────────────────────── real-time metric display
+`static/js/hand-tracking.js` owns MediaPipe and camera lifecycle behavior.
 
-Flask (Python)
-└── Serves static files + HTML template on 0.0.0.0:5050
-```
-
-All computation happens client-side. Flask is a simple static file server.
-
----
+- MediaPipe package versions are pinned in the template and hand asset resolver.
+- Detections are associated with recent position and handedness instead of trusting result-array order.
+- Identity memory persists briefly through tracking flicker.
+- Camera startup uses lifecycle generations so a pending start cannot outlive a stop request.
+- Late MediaPipe results from stopped generations are discarded.
+- Canvas dimensions change only when the source video dimensions change.
+- Permission denial, missing devices, busy devices, insecure contexts, processing failures, and missing CDN globals receive user-facing errors.
 
 ## Audio Engine
 
-Three switchable synth modes:
+Each hand receives an independent chain ending in a low-pass filter and gain node.
 
-### 1. FM Synth (default)
-- Carrier oscillator (sine) at the target frequency
-- Modulator oscillator modulates the carrier frequency
-- Modulation depth controlled by a fixed ratio
-- Classic electronic theremin sound
+| Mode | Sound design |
+|---|---|
+| FM Synth | Sine carrier with frequency modulation |
+| Clean Wave | Selectable sine or sawtooth oscillator |
+| Warm Tone | Triangle oscillator with delay/reverb character |
+| Pad | Three lightly detuned oscillators |
+| Theremin | Sine oscillator with vibrato LFO |
+| Organ | Fundamental plus second and third harmonics |
+| Bitcrush | Sawtooth through a stepped waveshaper |
 
-### 2. Clean Wave
-- Single oscillator (sine or sawtooth, user-selectable)
-- Direct frequency control, no modulation
-- Minimal and pure
+### Pitch System
 
-### 3. Warm Tone
-- Oscillator fed through a lowpass filter with moderate resonance
-- Convolution reverb (or delay-based reverb fallback) for warmth
-- Surf guitar / vintage feel
+The engine supports Chromatic, Major, Natural Minor, Major Pentatonic, Minor Pentatonic, Blues, Dorian, Mixolydian, Harmonic Minor, and Whole Tone scales in all 12 roots. Non-chromatic candidates are anchored to octave pitch classes and searched across adjacent octaves.
 
-All modes share:
-- **GainNode** for volume (hand Y)
-- **BiquadFilterNode** (lowpass) for tonal control (fist/open hand)
-- **Smooth transitions** via `linearRampToValueAtTime` to prevent clicks/pops
+### Lifecycle
 
----
+- Voice destruction captures and always tears down the old graph even if its numeric ID is immediately reused.
+- Gain fades prevent abrupt voice removal.
+- `ensureAndResume()`, `suspend()`, and `close()` expose AudioContext lifecycle operations.
+- Final close disconnects all nodes and releases the context.
 
-## UI Design — Beach Boys Aesthetic
+## User Interface
 
-### Color Palette
-| Role | Color | Hex |
-|---|---|---|
-| Background | Sandy cream / warm white | `#FFF8E7` |
-| Primary accent | Sunset coral | `#FF6B6B` |
-| Secondary accent | Ocean turquoise | `#4ECDC4` |
-| Tertiary accent | Sky blue | `#45B7D1` |
-| Text (headings) | Deep navy | `#2C3E50` |
-| Text (body) | Warm dark gray | `#5D5D5D` |
-| Card background | White | `#FFFFFF` |
-| Card shadow | Soft warm gray | rgba(0,0,0,0.08) |
+The interface uses a 1960s surf-pop record-sleeve visual language without external fonts.
 
-### Typography
-- **Headings:** "Pacifico" (Google Fonts) — retro surf script
-- **Body/metrics:** "Inter" or system sans-serif — clean and readable
-- **Metric values:** Large, bold, colored per-parameter
+- Side A: live camera stage
+- Side B: studio console
+- Live voice metrics and instrument status
+- Album track-list instructions
+- About Mario the Maker sleeve notes
+- Keyboard-accessible camera retry and power controls
+- Responsive single-column layouts below tablet widths
+- Reduced-motion support
 
-### Layout (Desktop / Pi Display)
-```
-┌─────────────────────────────────────────────────────┐
-│            🏄  VISUAL THERMIN  🏄                    │
-├────────────────────────┬────────────────────────────┤
-│                        │  ┌──────────────────────┐  │
-│                        │  │ 🎵 FREQUENCY  148 Hz │  │
-│     [ WEBCAM FEED ]    │  │ 🔊 VOLUME      45%   │  │
-│                        │  │ ✨ FILTER       Open  │  │
-│                        │  │                      │  │
-│                        │  │  ● Show hand to play │  │
-│                        │  └──────────────────────┘  │
-│                        │  ┌──────────────────────┐  │
-│                        │  │   HOW TO PLAY        │  │
-│                        │  │ ↔ Pitch: left/right  │  │
-│                        │  │ ↕ Volume: up/down    │  │
-│                        │  │ ✊ Filter: fist/open  │  │
-│                        │  └──────────────────────┘  │
-└────────────────────────┴────────────────────────────┘
+The six base color tokens are defined once in `static/css/style.css`; derived colors use `color-mix()`.
+
+## Architecture
+
+```text
+Browser
+├── MediaPipe Hands + Camera Utils
+│   └── webcam → stable hand IDs → normalized controls
+├── Web Audio API
+│   └── per-hand oscillators → low-pass filter → gain → output
+└── App controller
+    └── settings, metrics, camera errors, power, and page lifecycle
+
+Flask
+└── renders templates/index.html and serves static assets
 ```
 
-### Visual Details
-- Webcam feed: rounded corners (12px), soft shadow
-- Metric cards: white background, rounded, drop shadow
-- Metric values: large font, colored (coral for freq, turquoise for volume, blue for filter)
-- Smooth CSS transitions on all value changes
-- Optional: subtle wave/stripe pattern in the header area
-- Synth mode selector: small toggle or dropdown in the metrics panel
+## Secure-Origin Requirements
 
----
+Camera access requires HTTPS except for browser-recognized loopback origins such as `localhost` and `127.0.0.1`. A plain HTTP LAN IP is not sufficient for a remote viewer's camera.
 
-## Tech Stack
-
-### Backend
-- **Python 3.9+**
-- **Flask** — web server
-
-### Frontend (all via CDN)
-- **MediaPipe Hands** (`@mediapipe/hands`) — hand landmark detection
-- **MediaPipe Camera Utils** (`@mediapipe/camera_utils`) — webcam helper
-- **Google Fonts** — Pacifico
-
-### No build step required
-All JavaScript is vanilla ES modules or script tags. No bundler needed.
-
----
+The Flask entry point defaults to `127.0.0.1:5050` with debug mode off. `WAVR_HOST`, `WAVR_PORT`, and `WAVR_DEBUG` can override development settings. Production deployment requires a production WSGI server and HTTPS reverse proxy.
 
 ## File Structure
 
-```
+```text
 Wavr/
-├── SPEC.md               # This file
-├── app.py                # Flask server
-├── requirements.txt      # Python deps (flask)
+├── app.py
+├── requirements.txt
+├── README.md
+├── SPEC.md
+├── CLAUDE.md
 ├── static/
-│   ├── css/
-│   │   └── style.css     # Beach Boys themed styles
+│   ├── css/style.css
 │   └── js/
-│       ├── hand-tracking.js  # MediaPipe setup + gesture detection
-│       ├── audio-engine.js   # Web Audio synth engine
-│       └── app.js            # Main controller, UI glue
-└── templates/
-    └── index.html        # Main page template
+│       ├── audio-engine.js
+│       ├── hand-tracking.js
+│       └── app.js
+└── templates/index.html
 ```
 
----
+## Acceptance Checks
 
-## Pi 5 Deployment Notes
-
-- Run Flask with `host='0.0.0.0'` for LAN access
-- Chromium on Pi 5 supports MediaPipe Hands via WebGL
-- For kiosk mode: `chromium-browser --kiosk http://localhost:5050`
-- Camera access requires HTTPS in some browsers; localhost is exempt
-- If accessing from another device on LAN, may need to use the Pi's IP with HTTP (not HTTPS) — MediaPipe camera access may be blocked on non-localhost HTTP in some browsers
+1. Camera starts on localhost and actionable errors appear when it cannot.
+2. One and two hands retain stable voice IDs while moving.
+3. Every selected scale emits only valid pitch classes for its root.
+4. Disappearing/reappearing hands do not leak oscillator graphs.
+5. Power Off releases camera tracks and silences/suspends audio.
+6. Power On restores the instrument without a page reload.
+7. Hidden pages do not recreate voices from stale tracking results.
+8. The interface reflows without horizontal scrolling on phone widths.
