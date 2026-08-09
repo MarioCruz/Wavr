@@ -793,34 +793,12 @@ input[type="range"]::-moz-range-thumb {
     margin: 0 auto;
 }
 
-.maker-label {
+.maker-logo {
+    display: block;
     width: min(100%, 280px);
-    aspect-ratio: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border: 3px solid var(--fg);
-    border-radius: 50%;
-    background: var(--fg);
-    color: var(--surface);
-    box-shadow: inset 0 0 0 12px var(--surface), inset 0 0 0 15px var(--fg);
+    height: auto;
+    object-fit: contain;
     transform: rotate(-4deg);
-}
-
-.maker-label span {
-    font-family: var(--font-display);
-    font-size: clamp(2.6rem, 6vw, 5rem);
-    font-style: italic;
-    line-height: 0.9;
-}
-
-.maker-label small {
-    margin-top: 10px;
-    font-family: var(--font-mono);
-    font-size: 0.56rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
 }
 
 .about-copy h2 {
@@ -960,7 +938,7 @@ input[type="range"]::-moz-range-thumb {
         gap: 34px;
     }
 
-    .maker-label {
+    .maker-logo {
         width: 170px;
     }
 
